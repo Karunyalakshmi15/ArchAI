@@ -1,0 +1,1056 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>ArchAI | Intelligent Floor Plan Studio</title>
+<script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+<style>
+*{box-sizing:border-box}
+body{margin:0;font-family:Arial,sans-serif;background:#f1f5f9;color:#1e293b}
+header{background:#172554;color:white;padding:24px;text-align:center}
+header h1{margin:0;font-size:32px}
+header p{color:#cbd5e1;margin:8px 0 0}
+.container{max-width:1500px;margin:auto;padding:20px}
+.layout{display:grid;grid-template-columns:340px minmax(0,1fr);gap:20px;align-items:start}
+.panel{background:white;border-radius:14px;padding:20px;box-shadow:0 4px 16px #0000000a;margin-bottom:18px;min-width:0}
+h2{font-size:20px;margin:0 0 16px}
+h3{font-size:15px;margin:18px 0 10px}
+label{display:block;font-size:13px;font-weight:600;margin:12px 0 6px}
+input,select{width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:7px;font-size:14px;background:white;color:#1e293b}
+input[type=checkbox]{width:auto;margin:0}
+button{border:0;border-radius:8px;padding:11px 14px;font-weight:700;cursor:pointer;background:#e2e8f0;color:#1e293b}
+button:hover{filter:brightness(.96)}
+.primary{background:#2563eb;color:white;width:100%;margin-top:15px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.check{display:flex;align-items:center;gap:8px;font-weight:400;margin:10px 0}
+.check label{margin:0;font-weight:400}
+.actions,.tabs,.lighting-controls,.view-controls{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:15px}
+.view-controls{align-items:center}
+.view-controls button{background:#e2e8f0}
+.view-controls .view-label{font-size:12px;color:#475569;margin-right:auto;align-self:center}
+.actions button{flex:1}
+.tabs button,.lighting-controls button{background:#e2e8f0}
+.tabs button.active,.lighting-controls button.active{background:#2563eb;color:white}
+.view{display:none}
+.view.active{display:block}
+.summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:16px}
+.metric{padding:13px;background:#eff6ff;border-radius:10px;min-width:0}
+.metric span{display:block;font-size:12px;color:#64748b}
+.metric strong{display:block;font-size:19px;margin-top:5px;overflow-wrap:anywhere}
+#planCanvas{width:100%;overflow:auto;background:white;border:1px solid #e2e8f0;border-radius:10px}
+#planSvg{display:block;max-width:100%;height:auto;margin:auto}
+.three-container{height:520px;width:100%;background:#dbeafe;border-radius:10px;overflow:hidden}
+.three-container canvas{display:block;width:100%;height:100%}
+.room-card{border:1px solid #e2e8f0;border-radius:9px;padding:12px;margin:10px 0}
+.room-title{display:flex;justify-content:space-between;gap:8px;font-weight:700;font-size:13px}
+.room-title span:last-child{color:#64748b;white-space:nowrap}
+.dimensions{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.room-card label{margin-top:8px}
+.status{padding:12px;border-radius:8px;background:#fef3c7;color:#92400e;font-size:13px;line-height:1.5;margin:12px 0}
+.status.success{background:#dcfce7;color:#166534}
+.status.error{background:#fee2e2;color:#991b1b}
+.hint{font-size:12px;color:#64748b;line-height:1.6}
+.legend{display:flex;gap:12px;flex-wrap:wrap;font-size:12px;margin-top:12px}
+.legend span{display:flex;align-items:center;gap:5px}
+.swatch{width:12px;height:12px;border-radius:3px;display:inline-block}
+.table-wrap{overflow:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{padding:10px;text-align:left;border-bottom:1px solid #e2e8f0;white-space:nowrap}
+th{background:#f8fafc}
+.cost-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.cost-card{padding:14px;border-radius:9px;background:#f8fafc;border:1px solid #e2e8f0}
+.cost-card span{font-size:12px;color:#64748b;display:block}
+.cost-card strong{display:block;font-size:18px;margin-top:5px}
+@media(max-width:950px){.layout{grid-template-columns:1fr}}
+@media(max-width:600px){.container{padding:10px}.panel{padding:14px}.summary{grid-template-columns:1fr 1fr}.three-container{height:380px}.cost-grid{grid-template-columns:1fr}}
+@media print{header,.sidebar,.actions,.tabs,.no-print{display:none!important}.layout{display:block}.panel{box-shadow:none;border:0}.view{display:block!important}body{background:white}}
+
+/* Professional quick navigation */
+.pro-nav{position:sticky;top:0;z-index:1000;background:rgba(255,255,255,.94);backdrop-filter:blur(16px);border-bottom:1px solid #dbe3ed;box-shadow:0 8px 24px #1725540b}
+.pro-nav-inner{max-width:1500px;margin:auto;padding:10px 20px;display:flex;align-items:center;gap:18px}
+.nav-brand{display:flex;align-items:center;gap:9px;color:#172554;text-decoration:none;font-size:14px;font-weight:900;letter-spacing:.5px;white-space:nowrap}
+.nav-brand small{display:block;font-size:8px;letter-spacing:2px;color:#64748b;font-weight:800;margin-top:1px}
+.nav-mark{display:grid;place-items:center;width:38px;height:38px;border-radius:12px;background:linear-gradient(145deg,#1d4ed8,#172554);color:white;font-size:22px;box-shadow:0 5px 12px #1d4ed833}
+.nav-ai{color:#2563eb}.nav-links{display:flex;align-items:center;gap:5px;flex:1;overflow-x:auto;scrollbar-width:thin;padding:2px}
+.pro-link{display:flex;align-items:center;gap:7px;white-space:nowrap;background:transparent;color:#475569;border:1px solid transparent;border-radius:10px;padding:10px 12px;font-size:12px;font-weight:750;transition:background .18s,color .18s,transform .18s}
+.pro-link span{font-size:16px;color:#64748b}.pro-link:hover{background:#eff6ff;color:#1d4ed8;transform:translateY(-1px)}
+.pro-link.active{background:#172554;color:#fff;box-shadow:0 5px 12px #17255425}.pro-link.active span{color:#bfdbfe}
+.nav-config{white-space:nowrap;background:#dbeafe;color:#1d4ed8;border:1px solid #bfdbfe;border-radius:10px;padding:10px 13px;font-size:12px;font-weight:850}
+.nav-config:hover{background:#bfdbfe}
+.tabs{padding:6px;background:#f1f5f9;border-radius:12px;gap:6px}
+.tabs button{border:1px solid transparent;padding:10px 13px;border-radius:9px;font-size:12px;font-weight:750;transition:all .18s}
+.tabs button:hover{background:#dbeafe;color:#1d4ed8}
+.tabs button.active{background:#172554;color:white;box-shadow:0 4px 10px #17255422}
+.panel{transition:box-shadow .2s,transform .2s}.panel:hover{box-shadow:0 8px 24px #1725540d}
+button:focus-visible,.pro-link:focus-visible,.nav-config:focus-visible{outline:3px solid #60a5fa;outline-offset:2px}
+@media(max-width:800px){.pro-nav-inner{padding:8px 10px;gap:9px;flex-wrap:wrap}.nav-brand{font-size:12px}.nav-mark{width:32px;height:32px}.nav-links{order:3;flex-basis:100%;width:100%;padding-bottom:3px}.pro-link{padding:9px 10px}.nav-config{margin-left:auto}}
+@media(max-width:600px){.pro-nav{position:sticky}.pro-nav-inner{gap:6px}.nav-brand small{display:none}.nav-links{gap:3px}.pro-link{font-size:11px;padding:8px}.nav-config{font-size:11px;padding:8px 9px}}
+
+
+/* ArchAI premium workspace shell */
+:root{--app-bg:#f4f2ed;--app-card:#fffefa;--app-ink:#202923;--app-muted:#69756d;--app-line:#dfe4dc;--app-green:#214f3d;--app-accent:#c79a5b}
+body{background:var(--app-bg);color:var(--app-ink);font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+.app-shell{display:grid;grid-template-columns:238px minmax(0,1fr);min-height:100vh}
+.app-sidebar{background:linear-gradient(180deg,#173629 0%,#10281e 100%);color:#eef4ee;padding:26px 15px;display:flex;flex-direction:column;gap:18px;position:sticky;top:0;height:100vh;z-index:50}
+.brand{display:flex;align-items:center;gap:10px;font-size:22px;font-weight:900;letter-spacing:-.8px;padding:0 8px}
+.brand-mark{display:grid;place-items:center;border:1px solid #c79a5b;color:#dfbd84;width:38px;height:38px;border-radius:12px;font-size:24px}
+.brand-ai{color:#dfbd84}.brand small{display:block;font-size:9px;letter-spacing:2px;color:#a8bcae;margin-top:1px}
+.side-label{font-size:10px;letter-spacing:1.8px;font-weight:850;color:#8fa999;padding:12px 9px 0}
+.side-nav{display:grid;gap:6px}
+.side-link{display:flex;align-items:center;gap:12px;border:1px solid transparent;text-align:left;color:#c1d1c5;background:transparent;border-radius:10px;padding:13px 12px;font-weight:700;font-size:13px;transition:all .18s}
+.side-link span{display:inline-grid;place-items:center;width:22px;font-size:18px;color:#b6c8bb}
+.side-link.active,.side-link:hover{background:#ffffff17;border-color:#ffffff0c;color:white;box-shadow:inset 3px 0 #d8b477}
+.side-link.active span{color:#e3c18b}
+.side-foot{margin-top:auto;border-top:1px solid #ffffff25;padding:16px 8px 4px;color:#b5c5b9;font-size:11px;line-height:1.8}
+.side-foot b{font-size:10px;letter-spacing:1px;color:#e6c994}.side-foot span{display:block;color:#91a99a;font-size:10px;margin-top:8px}
+.app-content{padding:25px clamp(14px,3vw,40px);min-width:0;max-width:1800px;width:100%;margin:0 auto}
+.workspace-top{display:flex;justify-content:space-between;gap:18px;align-items:center;margin:0 0 24px;padding-bottom:18px;border-bottom:1px solid #dfe4dc}
+.workspace-top h1{font-size:clamp(25px,3vw,36px);letter-spacing:-1.4px;line-height:1.1;margin:6px 0}
+.workspace-top p{margin:7px 0 0;color:var(--app-muted);font-size:13px}
+.eyebrow{font-size:10px;letter-spacing:1.8px;font-weight:900;color:#36765a}
+.top-actions{display:flex;gap:8px;flex-wrap:wrap}
+.soft-btn,.gold-btn,.outline-btn,.primary-action{border:1px solid var(--app-line);border-radius:10px;padding:10px 14px;font-size:12px;font-weight:800;background:#fffefa;color:#243329;transition:transform .18s,box-shadow .18s,background .18s}
+.soft-btn:hover,.gold-btn:hover,.outline-btn:hover,.primary-action:hover{transform:translateY(-1px);box-shadow:0 7px 18px #1b33210f}
+.gold-btn{background:#f0dfc2;border-color:#e1cba7;color:#503b1e}.primary-action{background:var(--app-green);border-color:var(--app-green);color:#fff}
+.workspace-page{display:none;animation:pageIn .28s ease both}.workspace-page.active{display:block}
+@keyframes pageIn{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
+.hero-banner{position:relative;overflow:hidden;display:grid;grid-template-columns:1.15fr .85fr;gap:25px;align-items:center;padding:clamp(24px,4vw,43px);border-radius:20px;background:linear-gradient(120deg,#173629 0%,#24543d 58%,#3f7957 100%);color:#fff;margin-bottom:18px;box-shadow:0 18px 38px #17362920}
+.hero-banner:after{content:"";position:absolute;width:330px;height:330px;border:1px solid #ffffff17;border-radius:50%;right:7%;top:-190px;box-shadow:0 0 0 35px #ffffff08,0 0 0 70px #ffffff06;pointer-events:none}
+.hero-kicker{font-size:10px;letter-spacing:2px;color:#e7c892;font-weight:900}.hero-banner h2{font-size:clamp(31px,4vw,49px);letter-spacing:-1.8px;line-height:1.04;margin:13px 0}.hero-banner p{font-size:13px;line-height:1.8;color:#d5e2d8;max-width:550px;margin:0 0 20px}
+.hero-art{position:relative;z-index:1;max-width:390px;width:100%;justify-self:end;padding:12px;background:#f7f5ec;border:5px solid #fff;border-radius:5px;box-shadow:0 20px 35px #0003;transform:rotate(2deg)}
+.hero-grid{height:180px;display:grid;grid-template-columns:1fr 1.15fr 1fr;grid-template-rows:1fr 1fr;gap:4px;background:#f7f5ec}
+.hero-grid i{font-style:normal;display:grid;place-items:center;background:#dbe8d5;color:#254c37;font-size:10px;font-weight:900;letter-spacing:.6px}.hero-grid i:nth-child(2){background:#f0dfc2}.hero-grid i:nth-child(3){background:#d7e6ee}.hero-grid i:nth-child(4){grid-column:1/3;background:#d7e6ee}.hero-grid i:nth-child(5){background:#f1d6e5}.hero-grid i:nth-child(6){background:#e5e1ce}
+.art-caption{font-size:8px;letter-spacing:2px;text-align:center;color:#6a776b;font-weight:900;padding-top:10px}
+.overview-kpis,.analytics-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:17px}
+.kpi-card{background:var(--app-card);border:1px solid var(--app-line);border-radius:14px;padding:16px;box-shadow:0 8px 22px #23362908;min-width:0}
+.kpi-card span{display:block;color:var(--app-muted);font-size:11px;font-weight:750}.kpi-card strong{display:block;font-size:clamp(19px,2vw,26px);letter-spacing:-.7px;margin:7px 0 4px;overflow-wrap:anywhere}.kpi-card small{font-size:10px;color:#63806c}
+.overview-grid{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(280px,.75fr);gap:15px}
+.surface-card{background:var(--app-card);border:1px solid var(--app-line);border-radius:15px;box-shadow:0 10px 28px #23362909;padding:19px;min-width:0;margin-bottom:15px}
+.section-heading{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:14px}.section-heading h3,.surface-card h3{margin:0;font-size:16px;letter-spacing:-.3px}.section-heading p{margin:5px 0 0;color:var(--app-muted);font-size:11px}
+.pill{display:inline-flex;align-items:center;border-radius:30px;padding:6px 9px;background:#edf3e9;color:#2c6447;font-size:9px;font-weight:900;letter-spacing:.6px;white-space:nowrap}
+.overview-plan{border:1px solid var(--app-line);border-radius:10px;background:#fbfaf6;overflow:auto;min-height:240px;padding:5px}.overview-plan svg{display:block;width:100%;height:auto;min-width:430px}
+.text-link{background:transparent;color:#2d6849;font-size:12px;font-weight:850;padding:12px 0 0}.quick-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:20px}
+.overview-metric{margin:14px 0}.overview-metric-head{display:flex;justify-content:space-between;gap:8px;font-size:11px;margin-bottom:6px}.overview-metric-head span{color:var(--app-muted)}.progress-track{height:8px;background:#e9eee7;border-radius:30px;overflow:hidden}.progress-fill{height:100%;background:linear-gradient(90deg,#36765a,#c79a5b);border-radius:30px}
+.page-heading{margin:2px 0 18px}.page-heading h2{font-size:28px;letter-spacing:-.9px;margin:5px 0}.page-heading p{color:var(--app-muted);font-size:12px;margin:6px 0 0}
+.generator-layout{grid-template-columns:minmax(270px,320px) minmax(0,1fr);gap:16px}.generator-layout .sidebar{position:relative;top:auto;align-self:start}.generator-layout .panel,.generator-layout main>.panel{border:1px solid var(--app-line);border-radius:15px;box-shadow:0 8px 24px #23362908}.generator-layout h2{font-size:17px}.generator-layout input,.generator-layout select{border-color:#d6dfd5;border-radius:8px}.generator-layout .primary{background:var(--app-green);border-radius:10px}.generator-layout .tabs{background:#f1f3ed;border-radius:11px;padding:5px}.generator-layout .tabs button{border-radius:8px;font-size:11px}.generator-layout .tabs button.active{background:var(--app-green)}.generator-layout .metric{background:#edf3e9;border-radius:9px}.generator-layout .view.active{animation:pageIn .2s ease both}
+.analytics-grid{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(270px,.8fr);gap:15px}.wide-card{grid-column:1/-1}.area-plot{display:grid;gap:13px;padding:5px 0}.bar-row{display:grid;grid-template-columns:minmax(85px,130px) minmax(40px,1fr) 78px;gap:10px;align-items:center;font-size:11px}.bar-label{font-weight:750;overflow-wrap:anywhere}.bar-track{height:13px;background:#edf0e9;border-radius:5px;overflow:hidden}.bar-fill{height:100%;border-radius:5px;background:linear-gradient(90deg,#2f6b4f,#75a57b);transition:width .35s}.bar-value{text-align:right;font-weight:850;color:#385542;font-variant-numeric:tabular-nums}.util-ring{width:180px;height:180px;border-radius:50%;margin:15px auto;background:conic-gradient(#36765a var(--used,0%),#e7e9df 0);display:grid;place-items:center;position:relative}.util-ring:before{content:"";position:absolute;inset:17px;background:var(--app-card);border-radius:50%}.util-ring-inner{position:relative;text-align:center}.util-ring-inner strong{font-size:31px;display:block;letter-spacing:-1px}.util-ring-inner span{font-size:10px;color:var(--app-muted)}.util-legend{display:grid;gap:10px;font-size:11px}.util-legend div{display:flex;align-items:center;gap:8px}.dot{width:9px;height:9px;border-radius:3px;display:inline-block}.analytics-table{width:100%;border-collapse:collapse;font-size:12px}.analytics-table th,.analytics-table td{padding:11px 8px;text-align:left;border-bottom:1px solid var(--app-line)}.analytics-table th{font-size:10px;text-transform:uppercase;letter-spacing:.6px;color:var(--app-muted)}.compare-toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:15px}.compare-toolbar .pill{margin-left:auto}.empty-state{border:1px dashed #cbd5c9;border-radius:15px;text-align:center;padding:38px 20px;background:#fbfaf6;color:var(--app-muted)}.empty-icon{display:grid;place-items:center;width:54px;height:54px;border-radius:15px;background:#eaf1e5;color:#214f3d;font-size:28px;margin:0 auto 12px}.empty-state h3{margin:0 0 6px;color:var(--app-ink)}.empty-state p{font-size:12px;margin:0 0 16px}.compare-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.compare-card{background:var(--app-card);border:1px solid var(--app-line);border-radius:14px;padding:16px;min-width:0;box-shadow:0 8px 22px #23362908}.compare-card h3{font-size:15px;margin:0}.compare-card .meta{font-size:10px;color:var(--app-muted);margin:4px 0 12px}.compare-card .mini-stats{display:grid;grid-template-columns:1fr 1fr;gap:8px}.mini-stat{background:#f1f4ed;border-radius:9px;padding:10px}.mini-stat span{display:block;font-size:10px;color:#68776b}.mini-stat b{display:block;font-size:15px;margin-top:4px;overflow-wrap:anywhere}.compare-card button{margin-top:12px}.compare-summary{margin-top:15px}.delta-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:12px}.delta-item{background:#f1f4ed;border-radius:9px;padding:12px}.delta-item span{display:block;font-size:10px;color:#69756d}.delta-item b{display:block;font-size:18px;margin-top:5px}.method-grid{display:grid;grid-template-columns:1fr 1fr;gap:15px}.notice{background:#fff1df;border:1px solid #eed2aa;color:#80531e;border-radius:10px;padding:13px;font-size:12px;line-height:1.7;margin:14px 0}.method-list{font-size:12px;color:var(--app-muted);line-height:2;padding-left:19px}.surface-card h4{margin:18px 0 6px;font-size:12px}.method-step{display:grid;grid-template-columns:34px 1fr;gap:10px;margin:17px 0}.method-step>b{display:grid;place-items:center;width:32px;height:32px;background:#eaf1e5;color:#214f3d;border-radius:9px;font-size:11px}.method-step strong{font-size:12px}.method-step p{font-size:11px;color:var(--app-muted);line-height:1.7;margin:3px 0}.muted-note{font-size:11px;color:var(--app-muted);line-height:1.8}
+@media(max-width:1120px){.app-shell{grid-template-columns:200px minmax(0,1fr)}.overview-kpis,.analytics-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.generator-layout{grid-template-columns:minmax(250px,290px) minmax(0,1fr)}.overview-grid{grid-template-columns:1fr}.hero-art{max-width:320px}}
+@media(max-width:780px){.app-shell{grid-template-columns:1fr}.app-sidebar{position:sticky;top:0;height:auto;padding:10px 12px;gap:7px}.brand{font-size:18px;padding:0 4px}.brand-mark{width:32px;height:32px}.brand small,.side-label,.side-foot{display:none}.side-nav{display:flex;overflow-x:auto;gap:4px;padding:3px 0;scrollbar-width:thin}.side-link{white-space:nowrap;padding:9px 11px;font-size:11px;gap:7px}.side-link.active{box-shadow:inset 0 -3px #d8b477}.app-content{padding:14px 10px}.workspace-top{align-items:flex-start;flex-direction:column;margin-bottom:16px;padding-bottom:13px}.top-actions{width:100%}.hero-banner{grid-template-columns:1fr}.hero-art{display:none}.generator-layout{grid-template-columns:1fr}.generator-layout .sidebar{display:block}.analytics-grid,.method-grid,.compare-grid{grid-template-columns:1fr}.wide-card{grid-column:auto}.bar-row{grid-template-columns:85px minmax(35px,1fr) 65px}.delta-grid{grid-template-columns:1fr}.page-heading h2{font-size:24px}}
+@media(prefers-reduced-motion:reduce){.workspace-page,.generator-layout .view.active{animation:none}.bar-fill{transition:none}}
+@media print{.app-sidebar,.workspace-top,.page-heading,.compare-toolbar,.top-actions{display:none!important}.app-shell{display:block}.workspace-page{display:block!important}.app-content{padding:0}.surface-card,.panel{box-shadow:none;break-inside:avoid}}
+</style>
+</head>
+<body><div class="app-shell"><aside class="app-sidebar"><div class="brand"><span class="brand-mark">⌂</span><span>Arch<span class="brand-ai">AI</span><small>DESIGN STUDIO</small></span></div><div class="side-label">WORKSPACE</div><nav aria-label="Main navigation" class="side-nav"><button class="side-link active" data-page="overview"><span>◫</span>Overview</button><button class="side-link" data-page="generator"><span>⌂</span>Plan generator</button><button class="side-link" data-page="analytics"><span>▥</span>Analytics</button><button class="side-link" data-page="compare"><span>⇄</span>Compare layouts</button><button class="side-link" data-page="method"><span>ⓘ</span>Data &amp; method</button></nav><div class="side-foot"><b>ARCHAI FLOOR PLAN STUDIO</b><br/>Interactive concept planner<br/><span>Conceptual use only · Not for construction</span></div></aside><div class="app-content"><header class="workspace-top"><div><div class="eyebrow">RESIDENTIAL DESIGN WORKSPACE</div><h1 id="workspaceTitle">Design a smarter space.</h1><p id="workspaceSub">Turn your plot dimensions into an intelligent concept plan.</p></div><div class="top-actions"><button class="soft-btn" id="navConfig" type="button">⚙ Configure</button><button class="soft-btn" id="navTheme">◐ Focus view</button><button class="gold-btn" id="navGenerate">✦ Generate plan</button></div></header><section class="workspace-page active" id="page-overview">
+<div class="hero-banner"><div><span class="hero-kicker">YOUR IDEA · VISUALIZED</span><h2>Every square foot,<br/>with a purpose.</h2><p>Configure your plot, generate a dimensioned layout, explore area utilization and compare saved design options — all in one workspace.</p><button class="gold-btn" data-goto="generator">Open plan studio <span>→</span></button></div><div class="hero-art"><div class="hero-grid"><i>LIVING</i><i>KITCHEN</i><i>BEDROOM</i><i>DINING</i><i>BATH</i><i>UTILITY</i></div><div class="art-caption">SPACE PLANNING · REIMAGINED</div></div></div>
+<div class="overview-kpis" id="overviewKpis"></div>
+<div class="overview-grid"><div class="surface-card"><div class="section-heading"><div><h3>Current floor plan</h3><p>Your latest generated concept</p></div><span class="pill">LIVE PREVIEW</span></div><div class="overview-plan" id="overviewPlan"></div><button class="text-link" data-goto="generator">Edit this layout →</button></div><div class="surface-card"><div class="section-heading"><div><h3>Space at a glance</h3><p>Quick utilization snapshot</p></div></div><div id="overviewMetrics"></div><div class="quick-actions"><button class="outline-btn" data-goto="analytics">Explore analytics ↗</button><button class="outline-btn" data-goto="compare">Compare designs ↗</button></div></div></div>
+</section><section class="workspace-page" id="page-generator"><div class="page-heading"><div class="eyebrow">DESIGN WORKBENCH</div><h2>Plan generator</h2><p>Set your site length and width, configure spaces, then generate your concept.</p></div><div class="layout generator-layout">
+<aside class="sidebar">
+<div class="panel">
+<h2>Building Configuration</h2>
+<label for="buildingType">Select Building Type</label>
+<select id="buildingType">
+<option value="house">Independent House</option>
+<option value="mall">Shopping Mall</option>
+<option value="school">School / College</option>
+<option value="hospital">Hospital</option>
+<option value="apartment">Apartment Complex</option>
+<option value="office">Office / IT Park</option>
+<option value="hotel">Hotel / Resort</option>
+</select>
+<div class="status" id="buildingDescription">
+Design a conceptual independent house by configuring its plot and rooms.
+</div>
+<div class="grid2">
+<div><label for="plotLength">Site Length (ft)</label><input id="plotLength" max="300" min="15" type="number" value="40"/></div>
+<div><label for="plotWidth">Site Width (ft)</label><input id="plotWidth" max="300" min="15" type="number" value="30"/></div>
+</div>
+<div class="grid2">
+<div>
+<label for="floors">Number of Floors</label>
+<select id="floors">
+<option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option>
+</select>
+</div>
+<div>
+<label for="facing">Main Facing</label>
+<select id="facing">
+<option>North</option><option>South</option><option>East</option><option>West</option>
+</select>
+</div>
+</div>
+<div id="capacityFields">
+<label for="capacity">Target Capacity / Occupants</label>
+<input id="capacity" max="10000" min="1" type="number" value="4"/>
+</div>
+<div id="houseFields">
+<div class="grid2">
+<div><label for="bedrooms">Bedrooms</label><select id="bedrooms"><option>1</option><option selected="">2</option><option>3</option><option>4</option></select></div>
+<div><label for="bathrooms">Bathrooms</label><select id="bathrooms"><option>1</option><option selected="">2</option><option>3</option><option>4</option></select></div>
+</div>
+<label for="wallThickness">Wall Thickness (inches)</label>
+<input id="wallThickness" max="12" min="4" type="number" value="6"/>
+<h3>Additional Spaces</h3>
+<div class="check"><input checked="" id="balcony" type="checkbox"/><label for="balcony">Balcony</label></div>
+<div class="check"><input checked="" id="utility" type="checkbox"/><label for="utility">Utility Area</label></div>
+<div class="check"><input checked="" id="staircase" type="checkbox"/><label for="staircase">Staircase</label></div>
+<div class="check"><input id="pooja" type="checkbox"/><label for="pooja">Pooja Room</label></div>
+<div class="check"><input id="study" type="checkbox"/><label for="study">Study Room</label></div>
+<div class="check"><input checked="" id="dining" type="checkbox"/><label for="dining">Dining Area</label></div>
+<div class="check"><input id="parking" type="checkbox"/><label for="parking">Parking Area</label></div>
+</div>
+<div id="optionalSpaces"></div>
+<button class="primary" id="generateBtn">Generate Building Plan</button>
+<div class="status" id="status">Choose a building type and generate a conceptual plan.</div>
+</div>
+<div class="panel">
+<h2>Space Dimensions</h2>
+<p class="hint">Edit the dimensions of individual spaces. The layout algorithm checks plot boundaries and overlapping rectangles.</p>
+<div id="roomCards"></div>
+<button id="resetDimensions" style="width:100%;margin-top:10px">Reset Space Dimensions</button>
+</div>
+</aside>
+<main>
+<div class="panel">
+<div class="actions">
+<button id="printBtn">Print / Save PDF</button>
+<button id="downloadBtn">Download Plan SVG</button>
+<button id="resetViewBtn">Reset 3D View</button>
+</div>
+<div class="summary">
+<div class="metric"><span>Site Area</span><strong id="plotArea">1,200 sq ft</strong></div>
+<div class="metric"><span>Planned Space Area</span><strong id="roomArea">—</strong></div>
+<div class="metric"><span>Spaces</span><strong id="roomCount">—</strong></div>
+</div>
+<div class="tabs">
+<button class="active" data-view="planView">2D Layout</button>
+<button data-view="exteriorView">3D Exterior</button>
+<button data-view="interiorView">3D Interior</button>
+<button data-view="detailsView">Space Details</button>
+<button data-view="analysisView">Space Analysis</button>
+<button data-view="costView">Cost Estimate</button>
+</div>
+<section class="view active" id="planView">
+<h2 id="planHeading">House Floor Plan</h2>
+<div id="planCanvas"><svg aria-label="Building floor plan" id="planSvg" viewbox="0 0 800 650"></svg></div>
+<div class="legend">
+<span><i class="swatch" style="background:#dbeafe"></i>Living / Common</span>
+<span><i class="swatch" style="background:#dcfce7"></i>Private / Rooms</span>
+<span><i class="swatch" style="background:#fef3c7"></i>Services</span>
+<span><i class="swatch" style="background:#fce7f3"></i>Sanitary</span>
+<span><i class="swatch" style="background:#ede9fe"></i>Other spaces</span>
+</div>
+<p class="hint">This is a conceptual layout, not an approved architectural or engineering drawing.</p>
+</section>
+<section class="view" id="exteriorView">
+<h2>3D Building Exterior</h2>
+<div class="lighting-controls">
+<button class="active" data-mode="day">☀️ Daylight</button>
+<button data-mode="evening">🌇 Evening</button>
+<button data-mode="night">🌙 Night</button>
+</div>
+<div aria-label="Exterior 3D camera controls" class="view-controls">
+<button data-zoom="exterior-in" type="button">＋ Zoom in</button>
+<button data-zoom="exterior-out" type="button">− Zoom out</button>
+<button data-camera-reset="exterior" type="button">Reset camera</button>
+<span class="view-label">Drag to rotate · Scroll or use buttons to zoom</span>
+</div>
+<div class="three-container" id="exterior3d"></div>
+<div class="status" id="modeInfo">Daylight mode.</div>
+<p class="hint">Drag to rotate and scroll to zoom. Lighting changes apply to the 3D exterior.</p>
+</section>
+<section class="view" id="interiorView">
+<h2>3D Layout Visualization</h2>
+<div aria-label="Interior 3D camera controls" class="view-controls">
+<button data-zoom="interior-in" type="button">＋ Zoom in</button>
+<button data-zoom="interior-out" type="button">− Zoom out</button>
+<button data-camera-reset="interior" type="button">Reset camera</button>
+<span class="view-label">Open-top cutaway · Drag to rotate</span>
+</div>
+<div class="three-container" id="interior3d"></div>
+<p class="hint">3D cutaway showing room divisions and illustrative furniture. Each room’s exact length, width, and area are listed in Space Details and the Space Dimensions panel.</p>
+</section>
+<section class="view" id="detailsView">
+<h2>Space Dimensions and Positions</h2>
+<div class="table-wrap">
+<table>
+<thead><tr><th>Space</th><th>Length</th><th>Width</th><th>Area</th><th>X Position</th><th>Y Position</th></tr></thead>
+<tbody id="roomTable"></tbody>
+</table>
+</div>
+<h3>Area Summary</h3>
+<p class="hint" id="areaSummary">Generate a plan to see area details.</p>
+</section>
+<section aria-hidden="true" class="view" id="analysisView"><h2>Space Utilization Analysis</h2><div class="cost-grid"><div class="cost-card"><span>Site Area</span><strong id="analysisSite">—</strong></div><div class="cost-card"><span>Space Area</span><strong id="analysisRooms">—</strong></div><div class="cost-card"><span>Unallocated Area</span><strong id="analysisUnused">—</strong></div></div><div class="table-wrap"><table><thead><tr><th>Space</th><th>Area</th><th>Share of Site</th></tr></thead><tbody id="analysisTable"></tbody></table></div><p class="hint" id="capacitySummary"></p></section>
+<section class="view" id="costView">
+<h2>Estimated Construction Cost</h2>
+<p class="hint">Enter a local cost rate. This estimate uses the configured site area, floor count, and a simplified rate-per-square-foot assumption. It is not a contractor quotation.</p>
+<label for="costRate">Construction Rate (₹ per sq ft)</label>
+<input id="costRate" max="10000" min="500" type="number" value="2200"/>
+<div class="cost-grid" style="margin-top:15px">
+<div class="cost-card"><span>Estimated Built-up Area</span><strong id="builtupCostArea">—</strong></div>
+<div class="cost-card"><span>Estimated Base Cost</span><strong id="baseCost">—</strong></div>
+<div class="cost-card"><span>Cost with 10% Contingency</span><strong id="totalCost">—</strong></div>
+</div>
+<h3>Indicative Cost Breakdown</h3>
+<div class="table-wrap">
+<table>
+<thead><tr><th>Category</th><th>Share</th><th>Estimated Cost</th></tr></thead>
+<tbody id="costTable"></tbody>
+</table>
+</div>
+</section>
+</div>
+</main>
+</div></section><section class="workspace-page" id="page-analytics"><div class="page-heading"><div class="eyebrow">SPACE INTELLIGENCE</div><h2>Analytics &amp; utilization</h2><p>Understand where the planned area goes and how much of the site remains unallocated.</p></div><div class="analytics-kpis" id="analyticsKpis"></div><div class="analytics-grid"><div class="surface-card chart-panel"><div class="section-heading"><div><h3>Area allocation by space</h3><p>Each bar represents a room or functional space.</p></div><span class="pill">SQ FT</span></div><div class="area-plot" id="areaPlot"></div></div><div class="surface-card"><div class="section-heading"><div><h3>Site utilization</h3><p>Planned space versus unallocated area.</p></div></div><div id="utilizationPlot"></div><div class="muted-note" id="utilizationNote"></div></div><div class="surface-card wide-card"><div class="section-heading"><div><h3>Space allocation details</h3><p>Area and share of total site.</p></div></div><div id="analyticsTableWrap"></div></div></div></section><section class="workspace-page" id="page-compare"><div class="page-heading"><div class="eyebrow">DESIGN DECISIONS</div><h2>Compare layouts</h2><p>Save multiple snapshots and compare plot size, planned area, space count and estimated cost.</p></div><div class="compare-toolbar"><button class="primary-action" id="saveLayout">＋ Save current layout</button><button class="outline-btn" id="clearLayouts">Clear saved layouts</button><span class="pill" id="savedCount">0 SAVED</span></div><div class="empty-state" id="compareEmpty"><div class="empty-icon">⇄</div><h3>Your design shortlist starts here</h3><p>Generate a layout, then save it to compare alternatives side by side.</p><button class="primary-action" data-goto="generator">Create a layout</button></div><div class="compare-grid" id="compareCards"></div><div class="surface-card compare-summary" id="compareSummary" style="display:none"><h3>Difference report</h3><div id="compareDelta"></div></div></section><section class="workspace-page" id="page-method"><div class="page-heading"><div class="eyebrow">TRANSPARENT BY DESIGN</div><h2>Data &amp; method</h2><p>Understand how the planner builds layouts, calculates metrics and communicates its limitations.</p></div><div class="method-grid"><div class="surface-card"><span class="pill">DATA PROFILE</span><h3 style="margin-top:14px">What data is used?</h3><div class="notice"><b>No external dataset is connected.</b><br/>Room dimensions are generated from the selected building profile and user-edited values. Area metrics are calculated from the current schematic, not learned from real building records.</div><h4>Inputs used by the planner</h4><ul class="method-list"><li>Plot length and width (feet)</li><li>Building type, floors and target capacity</li><li>Selected rooms and their dimensions</li><li>Facing direction and construction rate</li></ul><h4>Calculated outputs</h4><ul class="method-list"><li>Site area = plot length × plot width</li><li>Room area = room length × room width</li><li>Utilization = planned room area ÷ site area</li><li>Indicative cost = built-up area × selected rate, plus contingency</li></ul></div><div class="surface-card"><span class="pill">LAYOUT METHOD</span><h3 style="margin-top:14px">How a plan is generated</h3><div class="method-step"><b>01</b><div><strong>Read requirements</strong><p>Collect site dimensions, building profile, floor count and requested spaces.</p></div></div><div class="method-step"><b>02</b><div><strong>Prepare room program</strong><p>Load the suggested rooms and apply enabled options and edited dimensions.</p></div></div><div class="method-step"><b>03</b><div><strong>Pack and validate</strong><p>Place room rectangles within the site and check boundaries and overlap constraints.</p></div></div><div class="method-step"><b>04</b><div><strong>Render views</strong><p>Draw the SVG plan and update the room schedule, analytics and cost estimate.</p></div></div><div class="method-step"><b>05</b><div><strong>Compare snapshots</strong><p>Save a named snapshot in this browser to compare alternative configurations.</p></div></div></div></div><div class="surface-card"><h3>Important limitations</h3><p class="muted-note">This application is a conceptual planning aid, not an architectural approval, structural design, code-compliance assessment or construction drawing. Cost values are indicative assumptions and may differ from local quotations. Confirm dimensions, setbacks, ventilation, accessibility, fire safety and local regulations with a qualified professional before building.</p></div></section></div></div>
+<script>
+const $=id=>document.getElementById(id);
+
+const colors={
+common:"#dbeafe",private:"#dcfce7",service:"#fef3c7",
+sanitary:"#fce7f3",other:"#ede9fe"
+};
+
+const buildingProfiles={
+house:{
+title:"Independent House",
+description:"Design a conceptual home with living, bedroom, kitchen, and optional spaces.",
+capacityLabel:"Target Occupants",
+defaultCapacity:4,defaultLength:40,defaultWidth:30,defaultFloors:1,rate:2200,
+spaces:[
+["Living",14,14,"common"],["Kitchen",10,9,"service"],
+["Bedroom 1",12,12,"private"],["Bedroom 2",12,11,"private"],
+["Bathroom 1",7,5,"sanitary"],["Bathroom 2",7,5,"sanitary"],
+["Dining",9,9,"service"],["Balcony",10,5,"other"],
+["Utility",7,6,"other"],["Staircase",10,6,"other"],
+["Pooja Room",5,5,"other"],["Study Room",8,8,"other"],["Parking",10,16,"other"]
+],optional:["Dining","Balcony","Utility","Staircase","Pooja Room","Study Room","Parking"]
+},
+mall:{
+title:"Shopping Mall",
+description:"Configure retail shops, food court, cinema, toilets, corridors, and service spaces for a conceptual mall.",
+capacityLabel:"Target Visitors",defaultCapacity:500,defaultLength:150,defaultWidth:100,defaultFloors:3,rate:3500,
+spaces:[
+["Retail Shops",30,20,"private"],["Anchor Store",40,30,"common"],
+["Food Court",30,25,"service"],["Cinema Hall",35,25,"common"],
+["Restrooms",15,10,"sanitary"],["Atrium",25,20,"other"],
+["Management Office",15,12,"private"],["Storage",15,10,"service"],
+["Loading Area",20,15,"other"],["Electrical Room",10,8,"service"]
+],optional:[]
+},
+school:{
+title:"School / College",
+description:"Plan classrooms, laboratories, library, administration, staff rooms, and student facilities.",
+capacityLabel:"Target Students",defaultCapacity:500,defaultLength:150,defaultWidth:100,defaultFloors:3,rate:2600,
+spaces:[
+["Classroom 1",25,20,"common"],["Classroom 2",25,20,"common"],
+["Classroom 3",25,20,"common"],["Science Lab",30,22,"service"],
+["Computer Lab",30,22,"service"],["Library",30,25,"other"],
+["Staff Room",20,15,"private"],["Administration",20,15,"private"],
+["Toilets",15,12,"sanitary"],["Canteen",30,20,"service"],
+["Assembly Hall",40,30,"common"],["Storage",12,10,"other"]
+],optional:[]
+},
+hospital:{
+title:"Hospital",
+description:"Arrange consultation rooms, wards, emergency, diagnostics, pharmacy, and hospital support areas.",
+capacityLabel:"Target Patients",defaultCapacity:100,defaultLength:150,defaultWidth:100,defaultFloors:4,rate:4000,
+spaces:[
+["Reception",25,20,"common"],["Consultation 1",15,12,"private"],
+["Consultation 2",15,12,"private"],["Patient Ward",35,25,"common"],
+["Emergency",25,20,"common"],["Laboratory",25,18,"service"],
+["Pharmacy",18,12,"service"],["Imaging",25,20,"service"],
+["Nurse Station",15,12,"private"],["Restrooms",15,12,"sanitary"],
+["Storage",15,12,"other"],["Staff Room",20,15,"private"]
+],optional:[]
+},
+apartment:{
+title:"Apartment Complex",
+description:"Create a conceptual apartment floor with residential units and shared amenities.",
+capacityLabel:"Target Residents",defaultCapacity:100,defaultLength:120,defaultWidth:80,defaultFloors:5,rate:2800,
+spaces:[
+["2BHK Unit 1",35,30,"private"],["2BHK Unit 2",35,30,"private"],
+["1BHK Unit 1",25,25,"private"],["1BHK Unit 2",25,25,"private"],
+["Lobby",20,15,"common"],["Staircase",15,10,"other"],
+["Lift Lobby",12,10,"other"],["Shared Toilets",10,8,"sanitary"],
+["Utility Room",12,10,"service"],["Community Room",25,20,"common"]
+],optional:[]
+},
+office:{
+title:"Office / IT Park",
+description:"Design an office floor with work areas, meeting rooms, cabins, server room, pantry, and support spaces.",
+capacityLabel:"Target Employees",defaultCapacity:250,defaultLength:120,defaultWidth:80,defaultFloors:5,rate:3000,
+spaces:[
+["Open Work Area",40,30,"common"],["Meeting Room 1",20,15,"private"],
+["Meeting Room 2",20,15,"private"],["Manager Cabins",20,15,"private"],
+["Server Room",15,12,"service"],["Reception",20,15,"common"],
+["Pantry",15,12,"service"],["Restrooms",15,12,"sanitary"],
+["Conference Room",30,22,"common"],["Storage",12,10,"other"],
+["Breakout Area",25,18,"other"]
+],optional:[]
+},
+hotel:{
+title:"Hotel / Resort",
+description:"Configure guest rooms, reception, dining, housekeeping, and shared hotel facilities.",
+capacityLabel:"Target Guests",defaultCapacity:100,defaultLength:120,defaultWidth:80,defaultFloors:4,rate:3200,
+spaces:[
+["Guest Room 1",18,16,"private"],["Guest Room 2",18,16,"private"],
+["Guest Room 3",18,16,"private"],["Reception",25,18,"common"],
+["Restaurant",30,25,"service"],["Kitchen",20,15,"service"],
+["Conference Room",30,22,"common"],["Housekeeping",12,10,"other"],
+["Restrooms",12,10,"sanitary"],["Storage",12,10,"other"]
+],optional:[]
+}
+};
+
+let roomSettings={};
+let placedRooms=[];
+let threeScenes={exterior:null,interior:null};
+let currentMode="day";
+let currentType="house";
+
+function createProfileSpaces(type){
+const profile=buildingProfiles[type];
+return profile.spaces.map((s,i)=>({
+name:s[0],l:s[1],w:s[2],category:s[3],
+color:colors[s[3]],enabled:true,order:i
+}));
+}
+
+function getEnabledSpaces(){
+const profile=buildingProfiles[currentType];
+return profile.spaces
+.filter(s=>roomSettings[s[0]]&&roomSettings[s[0]].enabled)
+.map(s=>({
+name:s[0],l:Number(roomSettings[s[0]].l),w:Number(roomSettings[s[0]].w),
+category:s[3],color:colors[s[3]]
+}));
+}
+
+function setBuildingType(type){
+currentType=type;
+const p=buildingProfiles[type];
+$("buildingDescription").textContent=p.description;
+$("capacity").value=p.defaultCapacity;
+$("plotLength").value=p.defaultLength;
+$("plotWidth").value=p.defaultWidth;
+$("floors").value=String(p.defaultFloors);
+$("costRate").value=p.rate;
+$("capacityFields").querySelector("label").textContent=p.capacityLabel;
+$("houseFields").style.display=type==="house"?"block":"none";
+$("planHeading").textContent=p.title+" — Conceptual Floor Plan";
+roomSettings={};
+createProfileSpaces(type).forEach(r=>{
+roomSettings[r.name]={l:r.l,w:r.w,enabled:true,category:r.category};
+});
+renderOptionalSpaces();
+buildRoomCards();
+setStatus("Building type changed. Review the suggested spaces and dimensions, then generate a new layout.");
+}
+
+function renderOptionalSpaces(){
+const holder=$("optionalSpaces");
+holder.innerHTML="";
+const p=buildingProfiles[currentType];
+if(currentType==="house")return;
+const title=document.createElement("h3");
+title.textContent="Spaces to Include";
+holder.appendChild(title);
+p.spaces.forEach(s=>{
+const row=document.createElement("div");
+row.className="check";
+const checkbox=document.createElement("input");
+checkbox.type="checkbox";
+checkbox.checked=true;
+checkbox.id="space_"+s[0].replace(/[^a-z0-9]/gi,"_");
+checkbox.addEventListener("change",()=>{
+roomSettings[s[0]].enabled=checkbox.checked;
+buildRoomCards();
+});
+const label=document.createElement("label");
+label.htmlFor=checkbox.id;
+label.textContent=s[0];
+row.append(checkbox,label);
+holder.appendChild(row);
+});
+}
+
+function syncHouseOptions(){
+if(currentType!=="house")return;
+const optional=[
+["Dining","dining"],["Balcony","balcony"],["Utility","utility"],
+["Staircase","staircase"],["Pooja Room","pooja"],["Study Room","study"],["Parking","parking"]
+];
+optional.forEach(([name,id])=>{
+if(roomSettings[name])roomSettings[name].enabled=$(id).checked;
+});
+const beds=Number($("bedrooms").value),baths=Number($("bathrooms").value);
+["Bedroom 1","Bedroom 2","Bedroom 3","Bedroom 4"].forEach((name,i)=>{
+if(roomSettings[name])roomSettings[name].enabled=i<beds;
+});
+["Bathroom 1","Bathroom 2","Bathroom 3","Bathroom 4"].forEach((name,i)=>{
+if(roomSettings[name])roomSettings[name].enabled=i<baths;
+});
+}
+
+function buildRoomCards(){
+if(currentType==="house")syncHouseOptions();
+const holder=$("roomCards");
+holder.innerHTML="";
+buildingProfiles[currentType].spaces.forEach(s=>{
+const name=s[0],settings=roomSettings[name];
+if(!settings||!settings.enabled)return;
+const card=document.createElement("div");
+card.className="room-card";
+card.innerHTML=`
+<div class="room-title"><span>${name}</span><span>${(settings.l*settings.w).toFixed(0)} sq ft</span></div>
+<div class="dimensions">
+<div><label>Length (ft)</label><input type="number" min="3" max="300" step="0.5" value="${settings.l}" data-room="${name}" data-dim="l"></div>
+<div><label>Width (ft)</label><input type="number" min="3" max="300" step="0.5" value="${settings.w}" data-room="${name}" data-dim="w"></div>
+</div>`;
+holder.appendChild(card);
+});
+holder.querySelectorAll("input").forEach(input=>{
+input.addEventListener("change",()=>{
+const value=Number(input.value);
+if(!Number.isFinite(value)||value<3||value>300){
+setStatus("Space dimensions must be between 3 and 300 feet.","error");
+buildRoomCards();
+return;
+}
+roomSettings[input.dataset.room][input.dataset.dim]=value;
+buildRoomCards();
+});
+});
+}
+
+function area(r){return r.l*r.w}
+
+function overlaps(a,b){
+const e=0.001;
+return a.x<b.x+b.w-e&&a.x+a.w>b.x+e&&a.y<b.y+b.l-e&&a.y+a.l>b.y+e;
+}
+
+function packRooms(input,pw,pl){
+const total=input.reduce((sum,r)=>sum+area(r),0);
+if(total>pw*pl*0.90){
+return{success:false,message:"The selected spaces require "+total.toFixed(0)+" sq ft, which exceeds the layout limit for this site. Reduce dimensions or deselect some spaces."};
+}
+for(const r of input){
+if(r.l>pl||r.w>pw){
+if(r.w<=pl&&r.l<=pw)[r.l,r.w]=[r.w,r.l];
+else return{success:false,message:r.name+" is larger than the site. Reduce its dimensions."};
+}
+}
+const sorters=[
+a=>[...a].sort((x,y)=>area(y)-area(x)),
+a=>[...a].sort((x,y)=>Math.max(y.l,y.w)-Math.max(x.l,x.w)),
+a=>[...a].sort((x,y)=>y.l-x.l),
+a=>[...a].sort((x,y)=>y.w-x.w)
+];
+for(const sorter of sorters){
+const placed=[];
+let failed=false;
+for(const room of sorter(input)){
+let chosen=null;
+const orientations=[[room.l,room.w],[room.w,room.l]];
+for(const [l,w] of orientations){
+if(l>pl||w>pw)continue;
+const xs=new Set([0]),ys=new Set([0]);
+placed.forEach(p=>{xs.add(p.x+p.w);ys.add(p.y+p.l);});
+const xlist=[...xs].filter(x=>x+w<=pw+0.001).sort((a,b)=>a-b);
+const ylist=[...ys].filter(y=>y+l<=pl+0.001).sort((a,b)=>a-b);
+for(const y of ylist){
+for(const x of xlist){
+const candidate={...room,l,w,x,y};
+if(!placed.some(p=>overlaps(candidate,p))){chosen=candidate;break;}
+}
+if(chosen)break;
+}
+if(chosen)break;
+}
+if(!chosen){failed=true;break;}
+placed.push(chosen);
+}
+if(!failed&&placed.length===input.length)return{success:true,rooms:placed,total};
+}
+return{success:false,message:"The selected spaces could not be arranged without overlap. Try reducing dimensions or disabling some spaces."};
+}
+
+function setStatus(message,type=""){
+$("status").textContent=message;
+$("status").className="status "+type;
+}
+
+function makePlan(){
+const pl=Number($("plotLength").value),pw=Number($("plotWidth").value);
+if(!Number.isFinite(pl)||!Number.isFinite(pw)||pl<15||pw<15||pl>300||pw>300){
+setStatus("Enter site length and width between 15 and 300 feet.","error");
+return;
+}
+if(currentType==="house")syncHouseOptions();
+const input=getEnabledSpaces();
+if(!input.length){setStatus("Select at least one space before generating the layout.","error");return;}
+const result=packRooms(input,pw,pl);
+if(!result.success){setStatus(result.message,"error");return;}
+placedRooms=result.rooms;
+drawPlan(pw,pl,placedRooms);
+renderDetails(placedRooms);
+updateSummary(result.total,pw*pl);
+updateAnalysis(result.total,pw*pl);
+updateCost();
+setStatus("Conceptual layout generated. The room rectangles fit within the site without overlap. Review the design before practical use.","success");
+if(threeScenes.exterior)buildExterior();
+if(threeScenes.interior)buildInterior();
+}
+
+function drawPlan(pw,pl,rooms){
+const svg=$("planSvg");
+const scale=Math.min(700/pw,510/pl);
+const W=pw*scale,H=pl*scale;
+const ox=(800-W)/2,oy=(650-H)/2;
+let out=`<rect width="800" height="650" fill="#fff"/>`;
+out+=`<text x="400" y="27" text-anchor="middle" font-size="17" font-weight="bold" fill="#1e293b">${buildingProfiles[currentType].title.toUpperCase()} — CONCEPT PLAN</text>`;
+out+=`<rect x="${ox}" y="${oy}" width="${W}" height="${H}" fill="#f8fafc" stroke="#0f172a" stroke-width="4"/>`;
+rooms.forEach(r=>{
+const x=ox+r.x*scale,y=oy+r.y*scale,w=r.w*scale,h=r.l*scale;
+out+=`<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${r.color}" stroke="#334155" stroke-width="2"/>`;
+const fs=Math.max(7,Math.min(14,scale*0.72));
+const shortName=r.name.length>19?r.name.slice(0,17)+"…":r.name;
+out+=`<text x="${x+w/2}" y="${y+h/2-3}" text-anchor="middle" font-size="${fs}" font-weight="bold" fill="#1e293b">${shortName}</text>`;
+out+=`<text x="${x+w/2}" y="${y+h/2+fs+2}" text-anchor="middle" font-size="${Math.max(7,fs-2)}" fill="#475569">${r.l} × ${r.w} ft</text>`;
+});
+out+=`<text x="400" y="${oy+H+24}" text-anchor="middle" font-size="13">${pw} ft</text>`;
+out+=`<text x="${ox-22}" y="${oy+H/2}" text-anchor="middle" font-size="13" transform="rotate(-90 ${ox-22} ${oy+H/2})">${pl} ft</text>`;
+const facing=$("facing").value;
+const positions={North:[ox+W/2,oy-10,"N ↑"],South:[ox+W/2,oy+H+43,"S ↓"],East:[ox+W+20,oy+H/2,"E →"],West:[ox-40,oy+H/2,"← W"]};
+const [tx,ty,label]=positions[facing];
+out+=`<text x="${tx}" y="${ty}" text-anchor="middle" font-size="14" font-weight="bold">${label}</text>`;
+svg.setAttribute("viewBox","0 0 800 650");
+svg.innerHTML=out;
+}
+
+function renderDetails(rooms){
+$("roomTable").innerHTML=rooms.map(r=>`<tr><td>${r.name}</td><td>${r.l} ft</td><td>${r.w} ft</td><td>${area(r).toLocaleString()} sq ft</td><td>${r.x.toFixed(1)} ft</td><td>${r.y.toFixed(1)} ft</td></tr>`).join("");
+const total=rooms.reduce((sum,r)=>sum+area(r),0);
+$("areaSummary").textContent=`${buildingProfiles[currentType].title}: ${rooms.length} selected spaces with a combined area of ${total.toLocaleString()} sq ft. Site dimensions: ${$("plotWidth").value} × ${$("plotLength").value} ft. Planned floors: ${$("floors").value}.`;
+}
+
+function updateSummary(total,siteArea){
+$("plotArea").textContent=siteArea.toLocaleString()+" sq ft";
+$("roomArea").textContent=total.toLocaleString()+" sq ft";
+$("roomCount").textContent=placedRooms.length;
+}
+
+function updateAnalysis(total,siteArea){
+const unused=Math.max(0,siteArea-total);
+$("analysisSite").textContent=siteArea.toLocaleString()+" sq ft";
+$("analysisRooms").textContent=total.toLocaleString()+" sq ft";
+$("analysisUnused").textContent=unused.toLocaleString()+" sq ft";
+$("analysisTable").innerHTML=placedRooms.map(r=>`<tr><td>${r.name}</td><td>${area(r).toLocaleString()} sq ft</td><td>${(area(r)/siteArea*100).toFixed(1)}%</td></tr>`).join("");
+const capacity=Number($("capacity").value)||0;
+$("capacitySummary").textContent=`User-entered target: ${capacity.toLocaleString()} ${buildingProfiles[currentType].capacityLabel.toLowerCase()}. This prototype does not verify legal occupancy, fire egress, accessibility, or code-compliant capacity. Unallocated area is not automatically a compliant corridor, setback, or open space.`;
+}
+
+function updateCost(){
+const rate=Math.max(0,Number($("costRate").value)||0);
+const siteArea=Math.max(0,Number($("plotLength").value)*Number($("plotWidth").value));
+const floors=Math.max(1,Number($("floors").value)||1);
+const builtup=Math.min(siteArea,placedRooms.reduce((sum,r)=>sum+area(r),0))*floors;
+const base=builtup*rate;
+const total=base*1.1;
+$("builtupCostArea").textContent=builtup.toLocaleString(undefined,{maximumFractionDigits:0})+" sq ft";
+$("baseCost").textContent="₹"+Math.round(base).toLocaleString("en-IN");
+$("totalCost").textContent="₹"+Math.round(total).toLocaleString("en-IN");
+const categories=[["Structure",0.40],["Brickwork and plastering",0.15],["Flooring and finishes",0.15],["Electrical",0.08],["Plumbing",0.08],["Doors and windows",0.08],["Miscellaneous",0.06]];
+$("costTable").innerHTML=categories.map(([name,share])=>`<tr><td>${name}</td><td>${share*100}%</td><td>₹${Math.round(base*share).toLocaleString("en-IN")}</td></tr>`).join("");
+}
+
+function dispose3D(key){
+const o=threeScenes[key];
+if(!o)return;
+cancelAnimationFrame(o.frame);
+window.removeEventListener("resize",o.resizeHandler);
+o.renderer.dispose();
+o.renderer.domElement.remove();
+o.scene.traverse(obj=>{
+if(obj.geometry)obj.geometry.dispose();
+if(obj.material){
+if(Array.isArray(obj.material))obj.material.forEach(m=>m.dispose());
+else obj.material.dispose();
+}
+});
+threeScenes[key]=null;
+}
+
+function create3D(containerId,key){
+if(!window.THREE){
+$(containerId).innerHTML="<p style='padding:20px'>Connect to the internet to load the 3D library.</p>";
+return null;
+}
+const container=$(containerId);
+container.innerHTML="";
+const scene=new THREE.Scene();
+scene.background=new THREE.Color("#9dc9f5");
+scene.fog=new THREE.Fog("#9dc9f5",45,150);
+const camera=new THREE.PerspectiveCamera(45,container.clientWidth/container.clientHeight,0.1,500);
+const renderer=new THREE.WebGLRenderer({antialias:true});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
+renderer.setSize(container.clientWidth,container.clientHeight);
+renderer.shadowMap.enabled=true;
+renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+renderer.outputColorSpace=THREE.SRGBColorSpace;
+renderer.toneMapping=THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure=1.1;
+container.appendChild(renderer.domElement);
+const hemi=new THREE.HemisphereLight(0xffffff,0x667080,1.8);
+scene.add(hemi);
+const ambient=new THREE.AmbientLight(0xffffff,0.5);
+scene.add(ambient);
+const sun=new THREE.DirectionalLight(0xfff0d0,3);
+sun.position.set(-15,25,12);
+sun.castShadow=true;
+sun.shadow.mapSize.set(2048,2048);
+sun.shadow.camera.left=-80;
+sun.shadow.camera.right=80;
+sun.shadow.camera.top=80;
+sun.shadow.camera.bottom=-80;
+scene.add(sun);
+const controls={rotation:0.65,tilt:0.48,distance:35,dragging:false,x:0,y:0};
+function updateCamera(){
+const d=controls.distance;
+camera.position.set(Math.sin(controls.rotation)*d,Math.sin(controls.tilt)*d,Math.cos(controls.rotation)*d);
+camera.lookAt(0,1.7,0);
+}
+function reset(){controls.rotation=0.65;controls.tilt=0.48;controls.distance=key==="exterior"?Math.max(18,Math.max(Number($("plotLength").value),Number($("plotWidth").value))*0.55):Math.max(18,Math.max(Number($("plotLength").value),Number($("plotWidth").value))*0.55);updateCamera();}
+ function zoom(factor){controls.distance=Math.max(5,Math.min(220,controls.distance*factor));updateCamera();}
+const canvas=renderer.domElement;
+canvas.addEventListener("pointerdown",e=>{controls.dragging=true;controls.x=e.clientX;controls.y=e.clientY;canvas.setPointerCapture(e.pointerId);});
+canvas.addEventListener("pointermove",e=>{
+if(!controls.dragging)return;
+controls.rotation-=(e.clientX-controls.x)*0.008;
+controls.tilt=Math.max(0.08,Math.min(1.35,controls.tilt+(e.clientY-controls.y)*0.006));
+controls.x=e.clientX;controls.y=e.clientY;updateCamera();
+});
+canvas.addEventListener("pointerup",()=>controls.dragging=false);
+canvas.addEventListener("pointercancel",()=>controls.dragging=false);
+canvas.addEventListener("wheel",e=>{e.preventDefault();controls.distance=Math.max(8,Math.min(180,controls.distance+e.deltaY*0.025));updateCamera();},{passive:false});
+updateCamera();
+const obj={scene,camera,renderer,controls,reset,zoom,frame:null,resizeHandler:null,hemi,ambient,sun};
+obj.resizeHandler=()=>{
+if(!container.clientWidth||!container.clientHeight)return;
+camera.aspect=container.clientWidth/container.clientHeight;
+camera.updateProjectionMatrix();
+renderer.setSize(container.clientWidth,container.clientHeight);
+};
+window.addEventListener("resize",obj.resizeHandler);
+threeScenes[key]=obj;
+function animate(){
+if(threeScenes[key]!==obj)return;
+obj.frame=requestAnimationFrame(animate);
+renderer.render(scene,camera);
+}
+animate();
+return obj;
+}
+
+function addBox(parent,w,h,d,x,y,z,color,options={}){
+const mesh=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),new THREE.MeshStandardMaterial({
+color,roughness:options.roughness??0.8,metalness:options.metalness??0
+}));
+mesh.position.set(x,y+h/2,z);
+mesh.castShadow=true;mesh.receiveShadow=true;
+parent.add(mesh);
+return mesh;
+}
+
+function addGround(scene,size){
+const ground=new THREE.Mesh(new THREE.PlaneGeometry(size,size),new THREE.MeshStandardMaterial({color:"#83a97a",roughness:1}));
+ground.rotation.x=-Math.PI/2;ground.position.y=-0.16;ground.receiveShadow=true;scene.add(ground);
+const grid=new THREE.GridHelper(size,50,"#9ba9a0","#aab5aa");
+grid.position.y=-0.15;scene.add(grid);
+}
+
+function buildExterior(){
+dispose3D("exterior");
+const o=create3D("exterior3d","exterior");
+if(!o)return;
+const scene=o.scene;
+const length=Number($("plotLength").value)*0.32;
+const width=Number($("plotWidth").value)*0.32;
+const floors=Number($("floors").value)||1;
+const scale=Math.min(1,50/Math.max(length,width));
+const W=width*scale,L=length*scale,H=3.2;
+addGround(scene,Math.max(W,L)+20);
+const lights={windows:[],garden:[],bulbs:[]};
+const type=currentType;
+const wall=type==="hospital"?"#e7edf0":type==="school"?"#f3e5c8":"#eee8de";
+const base=type==="mall"?"#d9e2e9":type==="office"?"#dce5ec":wall;
+const building=new THREE.Group();scene.add(building);
+const buildingH=H*floors;
+addBox(building,W,buildingH,L,0,0,0,base);
+for(let f=0;f<floors;f++){
+const y=f*H;
+addBox(building,W+0.25,0.12,L+0.25,0,y+H,0,"#525965");
+const winCount=Math.max(2,Math.floor(W/1.5));
+for(let i=0;i<winCount;i++){
+const x=-W/2+(i+0.5)*W/winCount;
+const win=addBox(building,Math.max(0.35,W/winCount*0.65),1.0,0.08,x,y+1.05,-L/2-0.06,"#75b9d5",{roughness:0.2});
+const glow=new THREE.PointLight("#ffd18a",0,5,2);
+glow.position.set(x,y+1.5,-L/2-0.6);scene.add(glow);lights.windows.push(glow);
+}
+if(type==="house"){
+const doorW=1.0;
+addBox(building,doorW,2.2,0.1,0,y,-L/2-0.1,"#765035");
+}else if(type==="mall"||type==="office"){
+addBox(building,W*0.35,0.8,0.12,0,y+0.15,-L/2-0.08,"#75b9d5");
+}
+}
+if(type==="house"){
+// Pitched gable roof gives the house a clear 3D elevation instead of a flat cap.
+const eaveY=buildingH+0.08, ridgeY=buildingH+Math.max(0.9,W*0.22), overhang=0.35;
+const roofGeom=new THREE.BufferGeometry();
+roofGeom.setAttribute("position",new THREE.Float32BufferAttribute([
+-W/2-overhang,eaveY,-L/2-overhang, 0,ridgeY,-L/2-overhang, 0,ridgeY,L/2+overhang,
+-W/2-overhang,eaveY,-L/2-overhang, 0,ridgeY,L/2+overhang, -W/2-overhang,eaveY,L/2+overhang,
+0,ridgeY,-L/2-overhang, W/2+overhang,eaveY,-L/2-overhang, W/2+overhang,eaveY,L/2+overhang,
+0,ridgeY,-L/2-overhang, W/2+overhang,eaveY,L/2+overhang, 0,ridgeY,L/2+overhang
+],3));
+roofGeom.computeVertexNormals();
+building.add(new THREE.Mesh(roofGeom,new THREE.MeshStandardMaterial({color:"#7b3f32",roughness:0.82,side:THREE.DoubleSide})));
+const gableGeom=new THREE.BufferGeometry();
+gableGeom.setAttribute("position",new THREE.Float32BufferAttribute([
+-W/2,eaveY,-L/2-overhang, W/2,eaveY,-L/2-overhang, 0,ridgeY,-L/2-overhang,
+-W/2,eaveY,L/2+overhang, 0,ridgeY,L/2+overhang, W/2,eaveY,L/2+overhang
+],3));
+gableGeom.computeVertexNormals();
+building.add(new THREE.Mesh(gableGeom,new THREE.MeshStandardMaterial({color:base,roughness:0.9,side:THREE.DoubleSide})));
+const balconyZ=-L/2-0.7;
+addBox(building,W*0.48,0.18,1.3,0,Math.min(buildingH-0.5,H*1.8),balconyZ,"#c9c4bb");
+for(let i=0;i<8;i++)addBox(building,0.05,0.5,0.05,-W*0.24+i*(W*0.48/7),Math.min(buildingH-0.3,H*1.8),balconyZ-0.55,"#555b63");
+}else{
+addBox(building,W+0.5,0.25,L+0.5,0,buildingH,0,"#424954");
+}
+for(const x of [-W*0.35,W*0.35]){
+const lamp=new THREE.Group();lamp.position.set(x,0,-L/2-1.7);
+addBox(lamp,0.12,1.3,0.12,0,0,0,"#303744");
+const bulb=new THREE.Mesh(new THREE.SphereGeometry(0.14,12,12),new THREE.MeshStandardMaterial({color:"#fff0b0",emissive:"#000000"}));
+bulb.position.set(0,1.35,0);lamp.add(bulb);
+const light=new THREE.PointLight("#ffd18a",0,8,2);light.position.set(0,1.35,0);lamp.add(light);
+building.add(lamp);lights.garden.push(light);lights.bulbs.push(bulb);
+}
+o.lighting=lights;
+applyMode(currentMode);
+o.reset();
+}
+
+function buildInterior(){
+dispose3D("interior");
+const o=create3D("interior3d","interior");
+if(!o)return;
+const scene=o.scene;
+const pw=Number($("plotWidth").value),pl=Number($("plotLength").value);
+const scale=Math.min(0.32,45/Math.max(pw,pl));
+const W=pw*scale,L=pl*scale;
+addGround(scene,Math.max(W,L)+15);
+addBox(scene,W,0.18,L,0,0,0,"#d9c5a7");
+const wallH=1.55,t=0.1;
+placedRooms.forEach(r=>{
+const x=-W/2+r.x*scale,z=-L/2+r.y*scale,w=r.w*scale,l=r.l*scale;
+addBox(scene,w,0.035,l,x+w/2,0.1,z+l/2,r.color);
+addBox(scene,w,wallH,t,x+w/2,0.1,z,"#f0ece5");
+addBox(scene,w,wallH,t,x+w/2,0.1,z+l,"#f0ece5");
+addBox(scene,t,wallH,l,x,0.1,z+l/2,"#f0ece5");
+addBox(scene,t,wallH,l,x+w,0.1,z+l/2,"#f0ece5");
+const name=r.name.toLowerCase();
+if(name.includes("bedroom")||name.includes("guest room")||name.includes("unit")){
+addBox(scene,w*0.55,0.25,l*0.4,x+w*0.5,0.14,z+l*0.5,"#9d795e");
+addBox(scene,w*0.55,0.16,l*0.3,x+w*0.5,0.39,z+l*0.5,"#f1f5f9");
+}else if(name.includes("living")||name.includes("lobby")||name.includes("reception")){
+addBox(scene,w*0.5,0.35,l*0.18,x+w*0.5,0.12,z+l*0.65,"#9bb7c8");
+}else if(name.includes("kitchen")||name.includes("pantry")){
+addBox(scene,w*0.75,0.65,0.4,x+w*0.5,0.12,z+l*0.2,"#b5b9bd");
+}else if(name.includes("dining")||name.includes("restaurant")||name.includes("food court")){
+addBox(scene,w*0.4,0.15,l*0.3,x+w*0.5,0.5,z+l*0.5,"#9c704a");
+}else if(name.includes("classroom")||name.includes("work area")||name.includes("retail")||name.includes("shop")){
+for(let i=0;i<3;i++)addBox(scene,w*0.15,0.3,0.35,x+w*(0.25+i*0.25),0.12,z+l*0.45,"#64748b");
+}
+});
+// Open-top cutaway keeps all interior partitions visible instead of hiding them beneath a roof.
+const perimeter=new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(W+0.12,0.04,L+0.12)),new THREE.LineBasicMaterial({color:"#64748b",transparent:true,opacity:0.6}));
+perimeter.position.set(0,wallH+0.03,0);scene.add(perimeter);
+o.reset();
+}
+
+function applyMode(mode){
+currentMode=mode;
+const configs={
+day:{sky:"#9dc9f5",fog:"#9dc9f5",ground:"#83a97a",hemi:2,ambient:0.65,sun:3.5,exposure:1.15,color:"#fff1d6",windows:0,garden:0,info:"☀️ Daylight: bright natural sunlight and clear building details."},
+evening:{sky:"#e6a17e",fog:"#e6a17e",ground:"#6b8c69",hemi:0.8,ambient:0.35,sun:1.25,exposure:1,color:"#ff9b5e",windows:0.55,garden:0.15,info:"🌇 Evening: warm sunset lighting and a golden building facade."},
+night:{sky:"#081326",fog:"#101b32",ground:"#273b31",hemi:0.22,ambient:0.16,sun:0.08,exposure:1.2,color:"#8aa9ff",windows:2.1,garden:3.2,info:"🌙 Night: dark surroundings, glowing windows, and illuminated exterior lamps."}
+};
+const c=configs[mode];
+document.querySelectorAll("[data-mode]").forEach(b=>b.classList.toggle("active",b.dataset.mode===mode));
+$("modeInfo").textContent=c.info;
+if(!threeScenes.exterior)return;
+const o=threeScenes.exterior;
+o.scene.background.set(c.sky);o.scene.fog.color.set(c.fog);
+o.hemi.intensity=c.hemi;o.ambient.intensity=c.ambient;o.sun.intensity=c.sun;
+o.sun.color.set(c.color);
+o.sun.position.set(mode==="day"?-15:mode==="evening"?-25:0,mode==="day"?25:mode==="evening"?8:15,12);
+o.renderer.toneMappingExposure=c.exposure;
+if(o.lighting){
+o.lighting.windows.forEach(light=>light.intensity=c.windows);
+o.lighting.garden.forEach(light=>light.intensity=c.garden);
+o.lighting.bulbs.forEach(b=>{b.material.emissive.set(mode==="night"?"#ffb74d":"#000000");b.material.emissiveIntensity=mode==="night"?2:0;});
+}
+}
+
+function showView(id){
+document.querySelectorAll(".view").forEach(v=>v.classList.toggle("active",v.id===id));
+document.querySelectorAll(".tabs button,.pro-link").forEach(b=>b.classList.toggle("active",b.dataset.view===id));
+if(id==="exteriorView"&&!threeScenes.exterior)buildExterior();
+if(id==="interiorView"&&!threeScenes.interior)buildInterior();
+if(id==="exteriorView"&&threeScenes.exterior)threeScenes.exterior.resizeHandler();
+if(id==="interiorView"&&threeScenes.interior)threeScenes.interior.resizeHandler();
+}
+
+$("buildingType").addEventListener("change",()=>{
+setBuildingType($("buildingType").value);
+makePlan();
+});
+$("generateBtn").addEventListener("click",makePlan);
+$("resetDimensions").addEventListener("click",()=>{
+const p=buildingProfiles[currentType];
+roomSettings={};
+createProfileSpaces(currentType).forEach(r=>roomSettings[r.name]={l:r.l,w:r.w,enabled:true,category:r.category});
+renderOptionalSpaces();
+buildRoomCards();
+});
+$("printBtn").addEventListener("click",()=>window.print());
+$("downloadBtn").addEventListener("click",()=>{
+const data=new XMLSerializer().serializeToString($("planSvg"));
+const blob=new Blob([data],{type:"image/svg+xml;charset=utf-8"});
+const url=URL.createObjectURL(blob);
+const a=document.createElement("a");a.href=url;a.download="ArchAI-"+currentType+"-Plan.svg";a.click();
+setTimeout(()=>URL.revokeObjectURL(url),1000);
+});
+$("resetViewBtn").addEventListener("click",()=>{
+if(threeScenes.exterior)threeScenes.exterior.reset();
+if(threeScenes.interior)threeScenes.interior.reset();
+});
+$("costRate").addEventListener("input",updateCost);
+document.querySelectorAll(".tabs button").forEach(b=>b.addEventListener("click",()=>showView(b.dataset.view)));
+document.querySelectorAll(".pro-link").forEach(b=>b.addEventListener("click",()=>{showView(b.dataset.view);document.querySelector("main").scrollIntoView({behavior:"smooth",block:"start"});}));
+$("navConfig").addEventListener("click",()=>{const nav=document.querySelector('[data-page="generator"]');if(nav)nav.click();setTimeout(()=>{document.querySelector(".sidebar").scrollIntoView({behavior:"smooth",block:"start"});$("buildingType").focus({preventScroll:true});},80);});
+document.querySelectorAll("[data-mode]").forEach(b=>b.addEventListener("click",()=>applyMode(b.dataset.mode)));
+["bedrooms","bathrooms","balcony","utility","staircase","pooja","study","dining","parking"].forEach(id=>{
+$(id).addEventListener("change",()=>{buildRoomCards();});
+});
+["plotLength","plotWidth","floors","capacity"].forEach(id=>{
+$(id).addEventListener("change",()=>{
+$("plotArea").textContent=(Number($("plotLength").value)*Number($("plotWidth").value)).toLocaleString()+" sq ft";
+});
+});
+
+setBuildingType("house");
+makePlan();
+</script><script>
+/* Workspace navigation, overview, area plots and saved-layout comparison */
+(function(){
+"use strict";
+const byId=id=>document.getElementById(id);
+const pageMeta={
+ overview:["Design a smarter space.","Turn your plot dimensions into an intelligent concept plan."],
+ generator:["Plan generator","Define your site dimensions and configure the spaces you need."],
+ analytics:["Analytics & utilization","See how planned space is distributed across your site."],
+ compare:["Compare layouts","Compare saved design snapshots before choosing a direction."],
+ method:["Data & method","Explore the calculations and assumptions behind this conceptual planner."]
+};
+let savedLayouts=[];
+try{savedLayouts=JSON.parse(localStorage.getItem("archaiSavedLayoutsV2")||"[]");if(!Array.isArray(savedLayouts))savedLayouts=[];}catch(e){savedLayouts=[];}
+function money(n){return "₹"+Math.round(Number(n)||0).toLocaleString("en-IN")}
+function fmt(n){return (Number(n)||0).toLocaleString("en-IN",{maximumFractionDigits:1})}
+function go(page){
+document.querySelectorAll(".workspace-page").forEach(p=>p.classList.toggle("active",p.id==="page-"+page));
+document.querySelectorAll(".side-link").forEach(b=>b.classList.toggle("active",b.dataset.page===page));
+const meta=pageMeta[page]||pageMeta.overview;
+byId("workspaceTitle").textContent=meta[0];byId("workspaceSub").textContent=meta[1];
+if(page==="generator")showView("planView");
+if(page==="analytics")renderAnalytics();
+if(page==="overview")renderOverview();
+if(page==="compare")renderCompare();
+window.scrollTo({top:0,behavior:"smooth"});
+}
+function siteArea(){return Math.max(0,(Number(byId("plotLength").value)||0)*(Number(byId("plotWidth").value)||0))}
+function totalArea(){return placedRooms.reduce((sum,r)=>sum+area(r),0)}
+function currentSnapshot(){
+const plot=siteArea(),planned=totalArea(),floors=Math.max(1,Number(byId("floors").value)||1),rate=Math.max(0,Number(byId("costRate").value)||0);
+return {id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),name:buildingProfiles[currentType].title+" · "+byId("plotLength").value+"×"+byId("plotWidth").value+" ft",date:new Date().toLocaleString(),type:currentType,title:buildingProfiles[currentType].title,length:Number(byId("plotLength").value)||0,width:Number(byId("plotWidth").value)||0,floors,capacity:Number(byId("capacity").value)||0,rooms:placedRooms.map(r=>({name:r.name,l:r.l,w:r.w,area:area(r)})),siteArea:plot,plannedArea:planned,roomCount:placedRooms.length,utilization:plot?planned/plot*100:0,cost:Math.min(plot,planned)*floors*rate*1.1};
+}
+function renderOverview(){
+const p=currentSnapshot(),used=p.siteArea?Math.min(100,p.utilization):0;
+byId("overviewKpis").innerHTML=[
+["Site area",fmt(p.siteArea)+" sq ft","Length × width"],
+["Planned area",fmt(p.plannedArea)+" sq ft","Sum of room areas"],
+["Spaces",p.roomCount,"Configured spaces"],
+["Site utilization",used.toFixed(1)+"%","Planned area / site area"]
+].map(x=>`<div class="kpi-card"><span>${x[0]}</span><strong>${x[1]}</strong><small>${x[2]}</small></div>`).join("");
+const svg=byId("planSvg");byId("overviewPlan").innerHTML=svg&&svg.innerHTML.trim()?`<svg xmlns="http://www.w3.org/2000/svg" viewBox="${svg.getAttribute("viewBox")||"0 0 800 650"}">${svg.innerHTML}</svg>`:'<div class="empty-state">Generate a plan to see the preview here.</div>';
+const metrics=[["Planned rooms",p.plannedArea,p.siteArea],["Unallocated",Math.max(0,p.siteArea-p.plannedArea),p.siteArea],["Estimated cost",p.cost,Math.max(1,p.siteArea*Number(byId("costRate").value||2200)*Math.max(1,p.floors)*1.1)]];
+byId("overviewMetrics").innerHTML=metrics.map((m,i)=>{let pct=i===2?Math.min(100,m[1]/m[2]*100):m[2]?Math.min(100,m[1]/m[2]*100):0;return `<div class="overview-metric"><div class="overview-metric-head"><b>${m[0]}</b><span>${i===2?money(m[1]):fmt(m[1])+" sq ft"}</span></div><div class="progress-track"><div class="progress-fill" style="width:${pct}%"></div></div></div>`}).join("");
+}
+function renderAnalytics(){
+const p=currentSnapshot(),site=p.siteArea,used=Math.min(site,p.plannedArea),unused=Math.max(0,site-used),pct=site?used/site*100:0;
+byId("analyticsKpis").innerHTML=[["Total site",fmt(site)+" sq ft"],["Planned spaces",fmt(p.plannedArea)+" sq ft"],["Unallocated",fmt(unused)+" sq ft"],["Utilization",pct.toFixed(1)+"%"]].map(x=>`<div class="kpi-card"><span>${x[0]}</span><strong>${x[1]}</strong><small>Based on current generated plan</small></div>`).join("");
+const rooms=[...placedRooms].map(r=>({name:r.name,a:area(r)})).sort((a,b)=>b.a-a.a),max=Math.max(1,...rooms.map(r=>r.a));
+byId("areaPlot").innerHTML=rooms.length?rooms.map(r=>`<div class="bar-row"><div class="bar-label" title="${r.name}">${r.name}</div><div class="bar-track"><div class="bar-fill" style="width:${Math.max(1,r.a/max*100)}%"></div></div><div class="bar-value">${fmt(r.a)} sq ft</div></div>`).join(""):'<div class="empty-state">Generate a plan to populate the area plot.</div>';
+byId("utilizationPlot").innerHTML=`<div class="util-ring" style="--used:${pct}%"><div class="util-ring-inner"><strong>${pct.toFixed(1)}%</strong><span>site utilized</span></div></div><div class="util-legend"><div><i class="dot" style="background:#36765a"></i><span>Planned room area</span><b style="margin-left:auto">${fmt(used)} sq ft</b></div><div><i class="dot" style="background:#e7e9df"></i><span>Unallocated site area</span><b style="margin-left:auto">${fmt(unused)} sq ft</b></div></div>`;
+byId("utilizationNote").textContent="Unallocated area is not automatically a compliant setback, open space or circulation zone. The percentages are descriptive calculations for this schematic only.";
+const rows=rooms.map(r=>`<tr><td>${r.name}</td><td>${fmt(r.a)} sq ft</td><td>${site?(r.a/site*100).toFixed(1):"0.0"}%</td></tr>`).join("");
+byId("analyticsTableWrap").innerHTML=`<div class="table-wrap"><table class="analytics-table"><thead><tr><th>Space</th><th>Area</th><th>Share of site</th></tr></thead><tbody>${rows}<tr><th>Unallocated area</th><th>${fmt(unused)} sq ft</th><th>${site?(unused/site*100).toFixed(1):"0.0"}%</th></tr></tbody></table></div>`;
+}
+function persist(){try{localStorage.setItem("archaiSavedLayoutsV2",JSON.stringify(savedLayouts))}catch(e){}}
+function renderCompare(){
+byId("savedCount").textContent=savedLayouts.length+" SAVED";
+byId("compareEmpty").style.display=savedLayouts.length?"none":"block";
+byId("compareCards").innerHTML=savedLayouts.map((p,i)=>`<article class="compare-card"><div class="section-heading"><div><h3>${p.name}</h3><div class="meta">${p.date} · ${p.title}</div></div><span class="pill">OPTION ${i+1}</span></div><div class="mini-stats"><div class="mini-stat"><span>Plot dimensions</span><b>${fmt(p.length)} × ${fmt(p.width)} ft</b></div><div class="mini-stat"><span>Planned area</span><b>${fmt(p.plannedArea)} sq ft</b></div><div class="mini-stat"><span>Utilization</span><b>${Number(p.utilization).toFixed(1)}%</b></div><div class="mini-stat"><span>Spaces / floors</span><b>${p.roomCount} / ${p.floors}</b></div><div class="mini-stat"><span>Estimated cost*</span><b>${money(p.cost)}</b></div><div class="mini-stat"><span>Building type</span><b>${p.title}</b></div></div><div class="toolbar"><button class="outline-btn" data-load-layout="${p.id}">Load this layout</button><button class="outline-btn" data-delete-layout="${p.id}">Remove</button></div></article>`).join("");
+const summary=byId("compareSummary");
+if(savedLayouts.length>=2){
+summary.style.display="block";const a=savedLayouts[savedLayouts.length-2],b=savedLayouts[savedLayouts.length-1];
+byId("compareDelta").innerHTML=`<p class="muted-note">Comparing the two most recently saved options: <b>${a.title}</b> and <b>${b.title}</b>.</p><div class="delta-grid">${[[ "Plot area",b.siteArea-a.siteArea,"sq ft"],["Planned area",b.plannedArea-a.plannedArea,"sq ft"],["Utilization",b.utilization-a.utilization,"%"]].map(d=>`<div class="delta-item"><span>${d[0]} · B minus A</span><b>${d[1]>0?"+":""}${fmt(d[1])} ${d[2]}</b></div>`).join("")}</div>`;
+}else{summary.style.display="none"}
+}
+function saveLayout(){
+if(!placedRooms.length){alert("Generate a layout before saving it.");return}
+const p=currentSnapshot();p.name=prompt("Name this layout:",p.name)||p.name;
+savedLayouts.push(p);if(savedLayouts.length>8)savedLayouts=savedLayouts.slice(-8);
+persist();renderCompare();go("compare");
+}
+function loadLayout(id){
+const p=savedLayouts.find(x=>x.id===id);if(!p)return;
+byId("buildingType").value=p.type;setBuildingType(p.type);
+byId("plotLength").value=p.length;byId("plotWidth").value=p.width;byId("floors").value=String(p.floors);byId("capacity").value=p.capacity;
+p.rooms.forEach(r=>{if(roomSettings[r.name]){roomSettings[r.name].l=r.l;roomSettings[r.name].w=r.w;roomSettings[r.name].enabled=true}});
+buildRoomCards();makePlan();go("generator");
+}
+function refresh(){renderOverview();renderAnalytics();renderCompare()}
+document.querySelectorAll(".side-link").forEach(b=>b.addEventListener("click",()=>go(b.dataset.page)));
+document.querySelectorAll("[data-goto]").forEach(b=>b.addEventListener("click",()=>go(b.dataset.goto)));
+byId("navGenerate").addEventListener("click",()=>{go("generator");makePlan()});
+byId("saveLayout").addEventListener("click",saveLayout);
+byId("clearLayouts").addEventListener("click",()=>{if(savedLayouts.length&&confirm("Clear all saved layout comparisons?")){savedLayouts=[];persist();renderCompare()}});
+byId("compareCards").addEventListener("click",e=>{const load=e.target.closest("[data-load-layout]"),del=e.target.closest("[data-delete-layout]");if(load)loadLayout(load.dataset.loadLayout);if(del){savedLayouts=savedLayouts.filter(p=>p.id!==del.dataset.deleteLayout);persist();renderCompare()}});
+byId("navTheme").addEventListener("click",()=>{document.body.classList.toggle("focus-mode");const active=document.body.classList.contains("focus-mode");byId("navTheme").textContent=active?"↗ Full workspace":"◐ Focus view";document.querySelector(".app-sidebar").style.display=active?"none":"";document.querySelector(".app-shell").style.gridTemplateColumns=active?"1fr":"";});
+/* Wrap the original plan generator so all new dashboard sections stay synchronized. */
+const originalMakePlan=makePlan;
+makePlan=function(){originalMakePlan();refresh()};
+["plotLength","plotWidth","floors","costRate","capacity"].forEach(id=>byId(id).addEventListener("change",refresh));
+document.querySelectorAll(".tabs button").forEach(b=>b.addEventListener("click",()=>setTimeout(refresh,30)));
+refresh();
+})();
+</script>
+</body>
+</html>
